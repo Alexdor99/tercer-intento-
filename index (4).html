@@ -1,0 +1,434 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuestionario de Inteligencia</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl">
+        <h1 class="text-2xl font-bold mb-4 text-center">Cuestionario de Inteligencia</h1>
+        <div id="question-container" class="mb-4">
+            <p id="question-text" class="text-lg font-semibold"></p>
+            <div id="options" class="mt-4 space-y-2"></div>
+        </div>
+        <div id="feedback" class="mt-4 text-center"></div>
+        <div class="mt-6 flex justify-between">
+            <button id="verify-btn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400" disabled>Verificar Respuesta</button>
+            <button id="next-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600" disabled>Siguiente Pregunta</button>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            {
+                question: "Durante el conflicto del Cenepa se realizaron operaciones de contraespionaje dentro de las unidades militares. Se dispuso que agentes de Inteligencia realizarán las D.H.P e I.S.P del personal de reservistas, clase VI y más personal que llegaba a las instalaciones militares de Patuca para realizar cualquier tipo de trabajo a fin de garantizar su idoneidad y evitar de que se infiltren personal que pueda entregar información al enemigo. Para ésta operación de Inteligencia, ¿qué principio de inteligencia se aplicó?",
+                options: ["Interdependiente", "Segura", "Imaginativa", "Flexible"],
+                correct: "Segura"
+            },
+            {
+                question: "En la jurisdicción de la I.D.E se encuentra el GIMC “PICHINCHA”, este elemento de inteligencia proporciona apoyo a una unidad específica, necesaria para responder a los requerimientos de inteligencia de esa unidad, esta relación de apoyo se la denomina?",
+                options: ["Apoyo directo", "Apoyo de refuerzo", "Apoyo inteligencia", "Apoyo general"],
+                correct: "Apoyo directo"
+            },
+            {
+                question: "A que tipo de requerimiento se refiere el siguiente enunciado? El comandante del B.I.Mot 111 ordena la aplicación de medidas de contrainteligencia pasiva con el objetivo de evitar que el enemigo conozca su dispositivo y la ubicación actual del P.M",
+                options: ["EEIA", "RIFA", "RICC", "RPI"],
+                correct: "EEIA"
+            },
+            {
+                question: "Uste es Oficial de inteligencia del B.I 222 y recepta un informe de la B.I 2/222, cuyo contenido detalla el tipo de abastecimiento, equipos, vehículos, instrumentos, vestuarios, armas, municiones, ect., observados de la unidad enemiga, frente a su sector de responsabilidad. ¿Indique a que clasificación le corresponde la información obtenida?",
+                options: ["Documentos tomados del enemigo", "Aparatos militares", "Prisioneros de guerra", "Pertrechos del enemigo"],
+                correct: "Pertrechos del enemigo"
+            },
+            {
+                question: "Los factores del O.B ayudan a comprender la situación del enemigo, se conoce la siguiente información: el comandante de la 999 “CHACRAS” emplea en su uniforme una insignia que al parecer es de un curso que oferta Rusia, conforme a los analistas del GIMC “NORTE” de fuerzas propias, señalan que posiblemente es un curso de mantenimiento del sistema de Artillería. ¿indique a que factor le corresponde la información mencionada en el texto?",
+                options: ["Eficiencia de combate", "Adiestramiento", "Misceláneos", "Logística"],
+                correct: "Misceláneos"
+            },
+            {
+                question: "Son las operaciones de Inteligencia destinadas a la protección de los sistemas, personal e instalaciones de cualquier tipo de amenaza, cuya finalidad principal es la de evitar operaciones de espionaje, sabotaje, vigilancia u otro tipo de acciones por parte de aquella. ¿A que concepto hace referencia?",
+                options: ["Contrainteligencia Activa", "Contrainteligencia Pasiva", "Contrainteligencia Estratégica", "Contrainteligencia de señales"],
+                correct: "Contrainteligencia Pasiva"
+            },
+            {
+                question: "Cuales son las medidas de contrainteligencia pasiva:",
+                options: [
+                    "Protección a personas muy importantes, seguridad integral, Investigación de seguridad de personal.",
+                    "Seguridad Integral, seguridad de personal, investigación de seguridad de personal.",
+                    "Investigación de seguridad de personal, seguridad a personas muy importantes, seguridad de personal.",
+                    "Seguridad de personal, seguridad adelantada, seguridad inmediata."
+                ],
+                correct: "Protección a personas muy importantes, seguridad integral, Investigación de seguridad de personal."
+            },
+            {
+                question: "Consisten en el empleo de un método mediante el cual las actividades de Inteligencia serán ejecutadas. ¿A que concepto hace referencia?",
+                options: ["Procedimientos de Contrainteligencia", "Procedimientos de seguridad", "Procedimientos de Inteligencia", "Procedimientos de inteligencia"],
+                correct: "Procedimientos de Inteligencia"
+            },
+            {
+                question: "A través de la actividad de Inteligencia desde tiempo de paz, los Comandantes aseguran el disponer de Inteligencia para el apoyo en todas las operaciones, siendo fundamental para la planificación y la toma de decisiones. ¿Indique a qué característica le corresponde este enunciado?",
+                options: ["Siempre en contacto", "Orientado a diferentes niveles", "Aumento de cobertura", "Simultáneamente apoyado"],
+                correct: "Siempre en contacto"
+            },
+            {
+                question: "Son deficiencias de diferente naturaleza: logística, operativa o administrativa, que se detectan en el enemigo, en el terreno, y que se pueden solucionar antes de iniciar las operaciones o en un corto plazo. ¿A que definición corresponde?",
+                options: ["Vulnerabilidad", "EEIA", "Indicio", "Debilidad"],
+                correct: "Debilidad"
+            },
+            {
+                question: "Los Prisioneros de Guerra constituyen una de las mejores fuentes de información. ¿Indique cuál es la clasificación de los PG por categorías?",
+                options: [
+                    "Desertores, heridos, no combatientes",
+                    "Oficiales, personal de tropa, detenidos",
+                    "Categoría 1, categoría 2, categoría 3, categoría 4",
+                    "Categoría A, Categoría B, Categoría C, Categoría D"
+                ],
+                correct: "Categoría A, Categoría B, Categoría C, Categoría D"
+            },
+            {
+                question: "Ninguna Operación de Inteligencia es igual a otra por varias razones. Por lo tanto, los procedimientos de Inteligencia deben ser lo suficientemente flexibles como para permitir una fácil adaptación de las agencias a los cambios que puedan encontrarse en cada situación. ¿A que principio hace referencia?",
+                options: ["Utilidad", "Oportunidad", "Flexible", "Segura"],
+                correct: "Flexible"
+            },
+            {
+                question: "Las actividades de Inteligencia jamás pueden dejar de ser realizadas. ¿A qué principio estamos refiriendo?",
+                options: ["Segura", "Oportuna", "Flexible", "Continua"],
+                correct: "Continua"
+            },
+            {
+                question: "¿En qué fase del ciclo de inteligencia se comparte la información procesada con los destinatarios?",
+                options: ["Recolección de información", "Análisis y producción", "Difusión", "Evaluación"],
+                correct: "Difusión"
+            },
+            {
+                question: "¿Cuál es la principal función del ciclo de producción de inteligencia?",
+                options: [
+                    "Recolectar datos sin analizarlos",
+                    "Transformar información en inteligencia útil para la toma de decisiones",
+                    "Difundir información sin verificar su validez",
+                    "Planear operaciones militares"
+                ],
+                correct: "Transformar información en inteligencia útil para la toma de decisiones"
+            },
+            {
+                question: "¿Para qué sirve la fase de difusión en el ciclo de inteligencia?",
+                options: [
+                    "Recolectar datos nuevos",
+                    "Comunicar la inteligencia producida a los usuarios adecuados",
+                    "Evaluar la utilidad de la información",
+                    "Planear futuras operaciones"
+                ],
+                correct: "Comunicar la inteligencia producida a los usuarios adecuados"
+            },
+            {
+                question: "¿Qué implica la fase de planificación en el ciclo de inteligencia?",
+                options: [
+                    "Recolectar datos sin un plan definido",
+                    "Determinar cómo se recopilará la información y qué se necesita",
+                    "Difundir la información sin verificarlo",
+                    "Evaluar la utilidad de la inteligencia"
+                ],
+                correct: "Determinar cómo se recopilará la información y qué se necesita"
+            },
+            {
+                question: "En un patrullaje realizado por el sector del Putumayo, los lideres comunitarios del lugar comunican a las fuerzas militares que han visto a varios hombres con armamento y un brazalete tricolor en el brazo derecho, pero sienten temor por represalias de estos sujetos. ¿A que clasificación se les podría asignar a estas personas?",
+                options: ["Agente Secreto", "Agencia", "Informante", "Agente"],
+                correct: "Informante"
+            },
+            {
+                question: "A que paso del CPI se refiere el siguiente enunciado? El Oficial P-2 identifica y selecciona agencias de búsqueda de información que serán parte del plan de búsqueda y permitirá emitir órdenes y pedidos.",
+                options: [
+                    "Difusión y uso",
+                    "Búsqueda de información",
+                    "Procesamiento de información",
+                    "Orientación del esfuerzo de búsqueda de información"
+                ],
+                correct: "Orientación del esfuerzo de búsqueda de información"
+            },
+            {
+                question: "El Plan o Anexo de Inteligencia es un documento parte del Plan u Orden de Operaciones, por medio del cual se expiden órdenes y pedidos, materializados por los R.I.C.C, para llevar a cabo la orientación del esfuerzo de búsqueda, dando inicio al Ciclo de Producción de Inteligencia. ¿A que hace referencia?",
+                options: ["Apreciación de Inteligencia", "Anexo de Inteligencia", "Carta de situación", "INPERIN"],
+                correct: "Anexo de Inteligencia"
+            },
+            {
+                question: "El procesamiento de la información es un paso del CPI que requieren, que consta de las siguientes fases:",
+                options: [
+                    "Apreciación de Inteligencia y archivo",
+                    "Informe al instante",
+                    "Registro y evaluación",
+                    "anexo de inteligencia"
+                ],
+                correct: "Registro y evaluación"
+            },
+            {
+                question: "Es el conocimiento que resulta de procesar información relativa al enemigo, terreno, y condiciones meteorológicas, que necesita un comandante para elaborar planes, tomar decisiones y llevar a cabo operaciones de combate. ¿Esta definición a que aspecto se refiere?",
+                options: ["Inteligencia estratégica", "Información del enemigo", "Inteligencia", "Inteligencia Táctica"],
+                correct: "Inteligencia Táctica"
+            },
+            {
+                question: "La definición referente a una operación fundamental de inteligencia, principalmente clandestina o secreta, destinada a debilitar el poder militar económico, psicosocial, moral o político del enemigo, mediante el empleo planificado de las OPSIC y otras acciones de hecho. ¿A que tipo de operación de inteligencia se refiere?",
+                options: ["Espionaje", "Sabotaje", "Subversión", "Contrainteligencia"],
+                correct: "Subversión"
+            },
+            {
+                question: "A que forma de accionar se refiere es en esencia clandestina, por lo tanto, requieren de elementos especializados para que sean ejecutados. ¿A que definición se refiere el texto mencionado?",
+                options: [
+                    "Procedimiento de inteligencia encubierto",
+                    "Procedimiento de inteligencia especial",
+                    "Procedimiento de contrainteligencia",
+                    "Procedimiento de inteligencia abierto"
+                ],
+                correct: "Procedimiento de inteligencia encubierto"
+            },
+            {
+                question: "Los factores del OB ayudan a comprender la situación del enemigo, se conoce la siguiente información: se han intensificado ejercicios en el terreno para realizar tiro de combate. ¿Indique a que factor le corresponde la información mencionada en el texto?",
+                options: ["Adiestramiento", "Miscelaneos", "Eficiencia de combate", "Logística"],
+                correct: "Adiestramiento"
+            },
+            {
+                question: "Existen varios indicios que pueden alertar la ejecución de una operación militar específica, si usted conoce que el enemigo ha localizado el puesto de mando del BIM 12, sus instalaciones logísticas y evacuación en la retaguardia. ¿A que indicio se refiere?",
+                options: ["Refuerzo", "Ataque", "Repliegue", "Defensa"],
+                correct: "Defensa"
+            },
+            {
+                question: "Es un factor relacionado muy estrechamente con la eficiencia de combate y con la determinación de las capacidades. ¿A que concepto se refiere?",
+                options: ["Eficiencia de combate", "Adiestramiento", "Logística", "Miscelaneos"],
+                correct: "Logística"
+            },
+            {
+                question: "Dentro de las fuentes de información, la clasificación abarca varios elementos. ¿Indique cuál de los siguientes elementos pueden considerarse como personal civil?",
+                options: ["Guerrilleros saboteadores", "Soldados Desertores", "Oficial superior de inteligencia", "Suboficial jefe de inteligencia"],
+                correct: "Guerrilleros saboteadores"
+            },
+            {
+                question: "La Eficiencia de Combate es un término usado para describir el rendimiento y la capacidad en cuanto al Combate de una Unidad del enemigo o del Ejército en general. ¿A que concepto hace referencia?",
+                options: ["Miscelaneos", "Adiestramiento", "Logística", "Eficiencia de combate"],
+                correct: "Eficiencia de combate"
+            },
+            {
+                question: "Es utilizado para transmitir información, Inteligencia, órdenes o pedidos entre la Unidad de Inteligencia y la Unidad apoyada.",
+                options: ["Canal de mando", "Canal de inteligencia", "Canal Técnico", "Canal del S.O.C.B"],
+                correct: "Canal de mando"
+            },
+            {
+                question: "Es una operación fundamental de Contrainteligencia dirigida específicamente contra las operaciones de Inteligencia y de reconocimiento que efectuará el enemigo hacia blancos de alto valor y de interés para Inteligencia. ¿A que concepto hace referencia?",
+                options: ["Contrasubversión", "Contrainteligencia", "Contrainteligencia pasiva", "Contrainteligencia activa"],
+                correct: "Contrainteligencia activa"
+            },
+            {
+                question: "Responde a la condición física de disponibilidad de la agencia para obtener información. ¿A que factor se refiere?",
+                options: ["Adaptabilidad", "Oportunidad", "Capacidad", "Multiplicidad"],
+                correct: "Capacidad"
+            },
+            {
+                question: "El Diario de Informaciones es un registro en donde, en orden cronológico y durante un periodo determinado, generalmente 24 horas, se anotan todos los mensajes e informes recibidos o remitidos, así como los acontecimientos de mayor importancia.",
+                options: ["Carta de situación", "Hoja de trabajo", "Diario", "Informes de inteligencia"],
+                correct: "Diario"
+            },
+            {
+                question: "A que paso del CPI se refiere el siguiente enunciado? El auxiliar de inteligencia actualiza la carta de situación del enemigo, registra la información tanto en forma cronológica como por campos.",
+                options: [
+                    "Búsqueda de información",
+                    "Procesamiento de información",
+                    "Producción de Inteligencia",
+                    "Orientación del esfuerzo de búsqueda de información"
+                ],
+                correct: "Procesamiento de información"
+            },
+            {
+                question: "Es una disciplina de la Inteligencia en la cual el elemento humano es el principal generador de información e Inteligencia. ¿A que concepto se refiere?",
+                options: ["Inteligencia Técnica", "Inteligencia Humana", "Inteligencia de señales", "Inteligencia de Imágenes"],
+                correct: "Inteligencia Humana"
+            },
+            {
+                question: "El ciclo de producción de inteligencia es paralelo a una actividad. ¿A que aspecto se refiere?",
+                options: ["Interrelacionado", "Simultaneo", "Permanente", "Continuo"],
+                correct: "Simultaneo"
+            },
+            {
+                question: "Usted es el Oficial de Inteligencia del B.I 222 y recepta el análisis de la información recibida del DIM “ALFA” y observa que tiene una calificación de “3”. ¿Indique que evaluación de exactitud le corresponde?",
+                options: ["Probablemente verdadera", "Probablemente falsa", "Posiblemente verdadera", "Dudosa"],
+                correct: "Posiblemente verdadera"
+            },
+            {
+                question: "Es la combinación de los elementos separados de las diferentes informaciones conocidas, para formar un concepto lógico de las actividades del enemigo o de la influencia de las características del área de operaciones sobre la misión de la Unidad. ¿A que concepto se refiere?",
+                options: ["Integración", "Confiabilidad", "Deducción", "Evaluación"],
+                correct: "Integración"
+            },
+            {
+                question: "La búsqueda de información debe ser asignada a más de una agencia, siempre que tengan la capacidad y los medios, así no se encuentren en su jurisdicción, para contar con más elementos de juicio para el procesamiento de la misma. ¿A que concepto se refiere?",
+                options: ["Multiplicidad", "Adaptabilidad", "Oportunidad", "Capacidad"],
+                correct: "Multiplicidad"
+            },
+            {
+                question: "La Eficiencia de Combate es un término usado para describir el rendimiento y la capacidad en cuanto al Combate de una Unidad del enemigo o del Ejército en general. ¿A que concepto del OB se refiere?",
+                options: ["Eficiencia de combate", "Dispositivo", "Efectivo", "Táctica"],
+                correct: "Eficiencia de combate"
+            },
+            {
+                question: "La inteligencia militar tiene como otros medios de obtención de información el análisis del clima. ¿Indique, que aspectos son de especial importancia que el Oficial de Inteligencia debe tener en cuenta para su análisis?",
+                options: [
+                    "Efectos de las condiciones de la lluvia y visibilidad exclusivamente",
+                    "Efectos de las condiciones del sol y la visibilidad exclusivamente",
+                    "Efectos de las condiciones del clima exclusivamente",
+                    "Efectos de las condiciones del clima y la visibilidad"
+                ],
+                correct: "Efectos de las condiciones del clima y la visibilidad"
+            },
+            {
+                question: "Es el último paso en la tramitación de una información procesada, comprobada y considerada válida como resultado de la Integración. ¿A que hace referencia?",
+                options: ["Deducción", "Evaluación", "Integración", "Confiabilidad"],
+                correct: "Deducción"
+            },
+            {
+                question: "Tiene los siguientes componentes: composición, dispositivo, efectivo, adiestramiento, tácticas y técnicas, logística, eficiencia de combate y datos misceláneos; estos son aplicables a the fuerza militar del enemigo. ¿A que tipo de inteligencia se refiere?",
+                options: [
+                    "Inteligencia del enemigo",
+                    "Inteligencia del Orden Batalla",
+                    "Inteligencia de capacidades",
+                    "Inteligencia de batalla"
+                ],
+                correct: "Inteligencia del Orden Batalla"
+            },
+            {
+                question: "Uno de los subpasos del paso 3 es analizar la potencia relativa de combate, para lo cual usted debe considerar que los planificadores hacen una apreciación de la relación de fuerza:",
+                options: ["Dos niveles arriba", "Al mismo nivel de las fuerzas", "Un nivel abajo", "Dos niveles abajo"],
+                correct: "Dos niveles abajo"
+            },
+            {
+                question: "Al analizar los factores como vegetación, materiales y configuraciones de la superficie, obstáculos naturales o artificiales, se combinan en un solo producto que se denomina:",
+                options: [
+                    "Cálculo de obstáculos combinados",
+                    "Cálculo de obstáculos peligrosos",
+                    "Cálculo de obstáculos sensibles",
+                    "Cálculo de obstáculos de alto riesgo"
+                ],
+                correct: "Cálculo de obstáculos combinados"
+            },
+            {
+                question: "Como productos de salida del paso 4 “análisis del curso de acción del enemigo” del PMTD se obtiene:",
+                options: [
+                    "Cursos de acción del enemigo",
+                    "Matriz de condiciones meteorológicas y el terreno",
+                    "Organización para el combate, las misione a impartir a las unidades subordinadas y los RICC",
+                    "Orden preparatoria 3"
+                ],
+                correct: "Cursos de acción del enemigo"
+            },
+            {
+                question: "La Inteligencia que se produce debe servirle al Comandante y a la Plana Mayor para el cumplimiento de su misión, es decir, debe ser para tomar decisiones acertadas y evitar la sorpresa. ¿A que principio hace referencia?",
+                options: ["Útil", "Oportuna", "Flexible", "Múltiple"],
+                correct: "Útil"
+            },
+            {
+                question: "Se debe evitar todo procedimiento que imponga límites a la imaginación o a la iniciativa. ¿A qué principio hace referencia?",
+                options: ["Útil", "Oportuna", "Flexible", "Previsiva"],
+                correct: "Previsiva"
+            },
+            {
+                question: "Corresponden a los de la conducción de las operaciones militares y permiten a los Comandantes y personal de Inteligencia visualizar el flujo lógico de las operaciones, la asignación de recursos y tareas. ¿A que hace referencia?",
+                options: ["Niveles críticos", "Niveles de Inteligencia", "Niveles de Información", "Niveles estratégicos"],
+                correct: "Niveles de Inteligencia"
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        let selectedAnswer = null;
+
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options');
+        const feedback = document.getElementById('feedback');
+        const verifyBtn = document.getElementById('verify-btn');
+        const nextBtn = document.getElementById('next-btn');
+
+        function loadQuestion() {
+            const q = questions[currentQuestionIndex];
+            questionText.textContent = `${currentQuestionIndex + 1}. ${q.question}`;
+            optionsContainer.innerHTML = '';
+            q.options.forEach((option, index) => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <input type="radio" name="option" id="option${index}" value="${option}" class="mr-2">
+                    <label for="option${index}">${option}</label>
+                `;
+                optionsContainer.appendChild(div);
+            });
+            feedback.textContent = '';
+            verifyBtn.disabled = true;
+            nextBtn.disabled = currentQuestionIndex === questions.length - 1;
+            selectedAnswer = null;
+
+            document.querySelectorAll('input[name="option"]').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    selectedAnswer = e.target.value;
+                    verifyBtn.disabled = false;
+                });
+            });
+        }
+
+        verifyBtn.addEventListener('click', () => {
+            const correctAnswer = questions[currentQuestionIndex].correct;
+            if (selectedAnswer === correctAnswer) {
+                feedback.textContent = '¡Correcto!';
+                feedback.className = 'mt-4 text-center text-green-600';
+            } else {
+                feedback.textContent = `Incorrecto. La respuesta correcta es: ${correctAnswer}`;
+                feedback.className = 'mt-4 text-center text-red-600';
+            }
+            verifyBtn.disabled = true;
+            nextBtn.disabled = false;
+            document.querySelectorAll('input[name="option"]').forEach(input => input.disabled = true);
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentQuestionIndex < questions.length - 1) {
+                currentQuestionIndex++;
+                loadQuestion();
+            }
+        });
+
+        loadQuestion();
+    </script>
+</body>
+</html>
